@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LifeTracker</string>
+
+    <!-- Navigation Labels -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_hydration">Hydration</string>
+    <string name="nav_health">Health</string>
+    <string name="nav_finance">Finance</string>
+    <string name="nav_vocabulary">Vocabulary</string>
+    <string name="nav_books">Books</string>
+    <string name="nav_quotes">Quotes</string>
+    <string name="nav_people">People</string>
+    <string name="nav_custom">Custom</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Notification Channels -->
+    <string name="channel_hydration_name">Hydration Reminders</string>
+    <string name="channel_hydration_desc">Reminders to drink water throughout the day</string>
+    <string name="channel_study_name">Study Reminders</string>
+    <string name="channel_study_desc">Reminders for your study sessions</string>
+    <string name="channel_general_name">General Reminders</string>
+    <string name="channel_general_desc">General LifeTracker reminders</string>
+
+    <!-- Common -->
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="add">Add</string>
+    <string name="confirm_delete">Confirm Delete</string>
+    <string name="confirm_delete_message">Are you sure you want to delete this item? This action cannot be undone.</string>
+    <string name="no_data">No data yet. Start adding entries!</string>
+</resources>

@@ -1,0 +1,44 @@
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Gradle build outputs
+.gradle/
+build/
+app/build/
+
+# Local configuration (contains SDK path — machine-specific)
+local.properties
+
+# Keystore files (NEVER commit these)
+*.keystore
+*.jks
+
+# Generated Room schema (optional — can commit if you want migration history)
+# app/schemas/
+
+# Proguard mapping files
+*.map
+
+# Android Studio captures
+captures/
+
+# Kotlin build cache
+.kotlin/
+
+# Node modules (if any tooling)
+node_modules/
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Test results
+test-results/
