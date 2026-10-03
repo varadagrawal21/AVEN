@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.lifetracker.data.db.NotificationPrefEntity
 import com.lifetracker.data.db.UserEntity
 import com.lifetracker.data.repository.UserRepository
-import com.lifetracker.notifications.HydrationReminderWorker
+import com.lifetracker.notifications.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -57,24 +57,28 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun saveNotificationPref(module: String, isEnabled: Boolean, intervalHours: Int, hour: Int, minute: Int) {
+    fun saveNotificationPref(
+        module: String,
+        isEnabled: Boolean,
+        intervalHours: Int,
+        hour: Int,
+        minute: Int,
+        customMessage: String = ""
+    ) {
         viewModelScope.launch {
             val pref = NotificationPrefEntity(
                 module = module,
                 isEnabled = isEnabled,
-                intervalHours = intervalHours,
-                reminderHour = hour,
-                reminderMinute = minute
+                intervalHours = intervalHours.coerceIn(1, 24),
+                reminderHour = hour.coerceIn(0, 23),
+                reminderMinute = minute.coerceIn(0, 59),
+                customMessage = customMessage.trim()
             )
             userRepo.saveNotificationPref(pref)
-
-            // Schedule or cancel WorkManager job
-            if (module == "HYDRATION") {
-                if (isEnabled) {
-                    HydrationReminderWorker.schedule(context, intervalHours.toLong())
-                } else {
-                    HydrationReminderWorker.cancel(context)
-                }
+            if (isEnabled) {
+                ReminderScheduler.schedule(context, module, pref)
+            } else {
+                ReminderScheduler.cancel(context, module)
             }
         }
     }

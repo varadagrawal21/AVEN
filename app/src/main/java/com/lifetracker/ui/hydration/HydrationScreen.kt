@@ -1,8 +1,10 @@
 package com.lifetracker.ui.hydration
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -10,13 +12,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lifetracker.data.db.HydrationLogEntity
 import com.lifetracker.ui.components.*
-import com.lifetracker.ui.theme.HydrationBlue
+import com.lifetracker.ui.theme.*
+import androidx.compose.ui.window.DialogProperties
 import com.lifetracker.viewmodel.HydrationViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -33,22 +37,22 @@ fun HydrationScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("💧 Hydration") },
+            GlassTopAppBar(
+                title = "Hydration",
                 actions = {
                     IconButton(onClick = { showGoalDialog = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Set Goal")
+                        Icon(Icons.Default.Settings, contentDescription = "Set Goal", tint = WhiteHigh)
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            GlassFloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = HydrationBlue
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Water Log")
-            }
+                icon = Icons.Default.Add,
+                contentDescription = "Add Water Log",
+                accentColor = HydrationBlue
+            )
         }
     ) { padding ->
         LazyColumn(
@@ -58,14 +62,8 @@ fun HydrationScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Progress ring
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
+                GlassCard(elevation = GlassElevation.Medium) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -75,7 +73,7 @@ fun HydrationScreen(
                         ProgressRing(
                             progress = state.progressFraction,
                             size = 160.dp,
-                            strokeWidth = 16.dp,
+                            strokeWidth = 14.dp,
                             progressColor = HydrationBlue
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -88,7 +86,7 @@ fun HydrationScreen(
                                 Text(
                                     text = "ml",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = WhiteMedium
                                 )
                             }
                         }
@@ -96,18 +94,17 @@ fun HydrationScreen(
                         Text(
                             text = "Daily Goal: ${state.dailyGoalMl} ml",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = WhiteHigh
                         )
                         Text(
                             text = "${(state.progressFraction * 100).toInt()}% completed",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WhiteMedium
                         )
                     }
                 }
             }
 
-            // Quick add buttons
             item {
                 SectionHeader(title = "Quick Add")
             }
@@ -117,17 +114,20 @@ fun HydrationScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(150, 250, 350, 500).forEach { amount ->
-                        OutlinedButton(
+                        GlassOutlineButton(
                             onClick = { viewModel.addWaterLog(amount) },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("${amount}ml", style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                "${amount}ml",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = WhiteHigh
+                            )
                         }
                     }
                 }
             }
 
-            // Today's logs
             item {
                 SectionHeader(title = "Today's Logs")
             }
@@ -135,7 +135,7 @@ fun HydrationScreen(
             if (state.todayLogs.isEmpty()) {
                 item {
                     EmptyStateView(
-                        message = "No water logged today. Stay hydrated! 💧",
+                        message = "No water logged today. Stay hydrated!",
                         icon = Icons.Default.WaterDrop
                     )
                 }
@@ -150,7 +150,6 @@ fun HydrationScreen(
         }
     }
 
-    // Add water dialog
     if (showAddDialog) {
         AddWaterDialog(
             onDismiss = { showAddDialog = false },
@@ -161,7 +160,6 @@ fun HydrationScreen(
         )
     }
 
-    // Set goal dialog
     if (showGoalDialog) {
         SetGoalDialog(
             currentGoal = state.dailyGoalMl,
@@ -178,7 +176,6 @@ fun HydrationScreen(
         )
     }
 
-    // Delete confirmation
     logToDelete?.let { log ->
         ConfirmDeleteDialog(
             onConfirm = {
@@ -198,32 +195,40 @@ fun HydrationLogItem(
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     val time = timeFormat.format(Date(log.timestamp))
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    GlassListItem(onClick = null) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.WaterDrop,
-                    contentDescription = null,
-                    tint = HydrationBlue,
-                    modifier = Modifier.size(24.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(HydrationBlue.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.WaterDrop,
+                        contentDescription = null,
+                        tint = HydrationBlue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
                         text = "${log.amountMl} ml",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = WhiteHigh
                     )
                     Text(
-                        text = time + if (log.note.isNotEmpty()) " • ${log.note}" else "",
+                        text = time + if (log.note.isNotEmpty()) " - ${log.note}" else "",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = WhiteMedium
                     )
                 }
             }
@@ -231,7 +236,7 @@ fun HydrationLogItem(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error
+                    tint = ErrorColor
                 )
             }
         }
@@ -248,26 +253,27 @@ fun AddWaterDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Water Log") },
+        containerColor = GlassHeavy,
+        title = { Text("Add Water Log", color = WhiteHigh) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                GlassTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("Amount (ml)") },
+                    label = "Amount (ml)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                GlassTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Note (optional)") },
+                    label = "Note (optional)",
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(
+            GlassPrimaryButton(
                 onClick = {
                     val amount = amountText.toIntOrNull() ?: 0
                     if (amount > 0) onAdd(amount, note)
@@ -275,8 +281,10 @@ fun AddWaterDialog(
             ) { Text("Add") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }
 
@@ -293,56 +301,54 @@ fun SetGoalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set Daily Water Goal") },
+        containerColor = GlassHeavy,
+        title = { Text("Set Daily Water Goal", color = WhiteHigh) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                GlassTextField(
                     value = goalText,
                     onValueChange = { goalText = it },
-                    label = { Text("Custom Goal (ml)") },
+                    label = "Custom Goal (ml)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-                Divider()
+                GlassDivider()
                 Text(
                     "Or calculate from body weight:",
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WhiteMedium
                 )
-                OutlinedTextField(
+                GlassTextField(
                     value = weightText,
                     onValueChange = { weightText = it },
-                    label = { Text("Body Weight (kg)") },
+                    label = "Body Weight (kg)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    "Formula: weight × 35 ml/kg",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "Formula: weight x 35 ml/kg",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WhiteLow
                 )
             }
         },
         confirmButton = {
-            Column {
-                Button(
-                    onClick = {
-                        val goal = goalText.toIntOrNull() ?: currentGoal
-                        onSetGoal(goal)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Set Custom Goal") }
-                Spacer(modifier = Modifier.height(4.dp))
-                OutlinedButton(
-                    onClick = {
-                        val weight = weightText.toFloatOrNull() ?: currentWeight
-                        onSetFromWeight(weight)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Calculate from Weight") }
-            }
+            GlassPrimaryButton(
+                onClick = {
+                    val goal = goalText.toIntOrNull() ?: currentGoal
+                    onSetGoal(goal)
+                }
+            ) { Text("Set Custom Goal") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+            GlassOutlineButton(
+                onClick = {
+                    val weight = weightText.toFloatOrNull() ?: currentWeight
+                    onSetFromWeight(weight)
+                }
+            ) { Text("Calculate") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }

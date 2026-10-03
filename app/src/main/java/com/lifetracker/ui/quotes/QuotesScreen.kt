@@ -1,10 +1,10 @@
 package com.lifetracker.ui.quotes
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,10 +16,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.lifetracker.ui.navigation.Screen
 import com.lifetracker.data.db.QuoteEntity
 import com.lifetracker.ui.components.*
-import com.lifetracker.ui.navigation.Screen
-import com.lifetracker.ui.theme.QuotesTeal
+import com.lifetracker.ui.theme.*
+import androidx.compose.ui.window.DialogProperties
 import com.lifetracker.viewmodel.QuotesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,34 +32,38 @@ fun QuotesScreen(
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var quoteToDelete by remember { mutableStateOf<QuoteEntity?>(null) }
+    var quoteToEdit by remember { mutableStateOf<QuoteEntity?>(null) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("💬 Quotes & Principles (${state.quoteCount})") },
+            GlassTopAppBar(
+                title = "Quotes (${state.quoteCount})",
                 actions = {
                     IconButton(onClick = { viewModel.toggleFavoritesFilter() }) {
                         Icon(
                             if (state.showFavoritesOnly) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = "Favorites",
-                            tint = if (state.showFavoritesOnly) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                            tint = if (state.showFavoritesOnly) ErrorColor else WhiteHigh
                         )
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }, containerColor = QuotesTeal) {
-                Icon(Icons.Default.Add, contentDescription = "Add Quote")
-            }
+            GlassFloatingActionButton(
+                onClick = { showAddDialog = true },
+                icon = Icons.Default.Add,
+                contentDescription = "Add Quote",
+                accentColor = QuotesTeal
+            )
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
+            GlassTextField(
                 value = state.searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                label = { Text("Search quotes...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                label = "Search quotes...",
+                leadingIcon = Icons.Default.Search,
                 modifier = Modifier.fillMaxWidth().padding(16.dp)
             )
 
@@ -77,6 +82,7 @@ fun QuotesScreen(
                             quote = quote,
                             onClick = { navController.navigate(Screen.QuoteDetail.createRoute(quote.id)) },
                             onFavorite = { viewModel.toggleFavorite(quote) },
+                            onEdit = { quoteToEdit = quote },
                             onDelete = { quoteToDelete = quote }
                         )
                     }
@@ -86,11 +92,32 @@ fun QuotesScreen(
     }
 
     if (showAddDialog) {
-        AddQuoteDialog(
+        AddOrEditQuoteDialog(
+            existingQuote = null,
             onDismiss = { showAddDialog = false },
-            onAdd = { text, author, source, reflection, howToApply, category ->
+            onSave = { text, author, source, reflection, howToApply, category ->
                 viewModel.addQuote(text, author, source, reflection, howToApply, category)
                 showAddDialog = false
+            }
+        )
+    }
+
+    quoteToEdit?.let { quote ->
+        AddOrEditQuoteDialog(
+            existingQuote = quote,
+            onDismiss = { quoteToEdit = null },
+            onSave = { text, author, source, reflection, howToApply, category ->
+                viewModel.updateQuote(
+                    quote.copy(
+                        quoteText = text,
+                        author = author,
+                        source = source,
+                        reflection = reflection,
+                        howToApply = howToApply,
+                        category = category
+                    )
+                )
+                quoteToEdit = null
             }
         )
     }
@@ -104,30 +131,50 @@ fun QuotesScreen(
 }
 
 @Composable
-fun QuoteItem(quote: QuoteEntity, onClick: () -> Unit, onFavorite: () -> Unit, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "\"${quote.quoteText}\"",
-                style = MaterialTheme.typography.bodyLarge,
-                fontStyle = FontStyle.Italic,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (quote.author.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("— ${quote.author}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun QuoteItem(
+    quote: QuoteEntity,
+    onClick: () -> Unit,
+    onFavorite: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    GlassListItem(onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "\"${quote.quoteText}\"",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontStyle = FontStyle.Italic,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    color = WhiteHigh
+                )
+                if (quote.author.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "- ${quote.author}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = WhiteMedium
+                    )
+                }
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row {
                 IconButton(onClick = onFavorite) {
                     Icon(
                         if (quote.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (quote.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (quote.isFavorite) ErrorColor else WhiteMedium
                     )
                 }
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AccentBlue)
+                }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
                 }
             }
         }
@@ -135,36 +182,87 @@ fun QuoteItem(quote: QuoteEntity, onClick: () -> Unit, onFavorite: () -> Unit, o
 }
 
 @Composable
+fun AddOrEditQuoteDialog(
+    existingQuote: QuoteEntity? = null,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String, String, String) -> Unit
+) {
+    var quoteText by remember { mutableStateOf(existingQuote?.quoteText ?: "") }
+    var author by remember { mutableStateOf(existingQuote?.author ?: "") }
+    var source by remember { mutableStateOf(existingQuote?.source ?: "") }
+    var reflection by remember { mutableStateOf(existingQuote?.reflection ?: "") }
+    var howToApply by remember { mutableStateOf(existingQuote?.howToApply ?: "") }
+    var category by remember { mutableStateOf(existingQuote?.category ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = GlassHeavy,
+        title = { Text(if (existingQuote != null) "Edit Quote" else "Add Quote", color = WhiteHigh) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassTextField(
+                    value = quoteText,
+                    onValueChange = { quoteText = it },
+                    label = "Quote *",
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = author,
+                    onValueChange = { author = it },
+                    label = "Author",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = source,
+                    onValueChange = { source = it },
+                    label = "Source",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = reflection,
+                    onValueChange = { reflection = it },
+                    label = "Your reflection",
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = howToApply,
+                    onValueChange = { howToApply = it },
+                    label = "How to apply",
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = "Category",
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            GlassPrimaryButton(onClick = {
+                if (quoteText.isNotBlank()) onSave(quoteText, author, source, reflection, howToApply, category)
+            }) { Text(if (existingQuote != null) "Save" else "Add") }
+        },
+        dismissButton = {
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    )
+}
+
+@Composable
 fun AddQuoteDialog(
     onDismiss: () -> Unit,
     onAdd: (String, String, String, String, String, String) -> Unit
 ) {
-    var quoteText by remember { mutableStateOf("") }
-    var author by remember { mutableStateOf("") }
-    var source by remember { mutableStateOf("") }
-    var reflection by remember { mutableStateOf("") }
-    var howToApply by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Quote") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = quoteText, onValueChange = { quoteText = it }, label = { Text("Quote *") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text("Author") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = source, onValueChange = { source = it }, label = { Text("Source (book, person...)") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = reflection, onValueChange = { reflection = it }, label = { Text("Your reflection") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = howToApply, onValueChange = { howToApply = it }, label = { Text("How to apply in life") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                if (quoteText.isNotBlank()) onAdd(quoteText, author, source, reflection, howToApply, category)
-            }) { Text("Add") }
-        },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
+    AddOrEditQuoteDialog(
+        existingQuote = null,
+        onDismiss = onDismiss,
+        onSave = onAdd
     )
 }
 
@@ -183,11 +281,11 @@ fun QuoteDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Quote Detail") },
+            GlassTopAppBar(
+                title = "Quote Detail",
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteHigh)
                     }
                 },
                 actions = {
@@ -196,7 +294,7 @@ fun QuoteDetailScreen(
                             Icon(
                                 if (q.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = "Favorite",
-                                tint = if (q.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                tint = if (q.isFavorite) ErrorColor else WhiteHigh
                             )
                         }
                     }
@@ -211,29 +309,55 @@ fun QuoteDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("\"${q.quoteText}\"", style = MaterialTheme.typography.bodyLarge, fontStyle = FontStyle.Italic)
+                    GlassCard(elevation = GlassElevation.Medium) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                "\"${q.quoteText}\"",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontStyle = FontStyle.Italic,
+                                color = WhiteHigh
+                            )
                             if (q.author.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("— ${q.author}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "- ${q.author}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WhiteHigh
+                                )
                             }
-                            if (q.source.isNotEmpty()) Text("Source: ${q.source}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (q.source.isNotEmpty()) {
+                                Text(
+                                    "Source: ${q.source}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = WhiteMedium
+                                )
+                            }
                         }
                     }
                 }
                 if (q.reflection.isNotEmpty()) {
                     item {
-                        Text("My Reflection", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = QuotesTeal)
+                        Text(
+                            "My Reflection",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = QuotesTeal
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(q.reflection, style = MaterialTheme.typography.bodyMedium)
+                        Text(q.reflection, style = MaterialTheme.typography.bodyMedium, color = WhiteHigh)
                     }
                 }
                 if (q.howToApply.isNotEmpty()) {
                     item {
-                        Text("How I Apply This", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = QuotesTeal)
+                        Text(
+                            "How I Apply This",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = QuotesTeal
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(q.howToApply, style = MaterialTheme.typography.bodyMedium)
+                        Text(q.howToApply, style = MaterialTheme.typography.bodyMedium, color = WhiteHigh)
                     }
                 }
             }

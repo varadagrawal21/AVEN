@@ -14,6 +14,7 @@ sealed class Screen(val route: String) {
     object Hydration : Screen("hydration")
     object Health : Screen("health")
     object Finance : Screen("finance")
+    object Academic : Screen("academic")
     object Vocabulary : Screen("vocabulary")
     object Books : Screen("books")
     object Quotes : Screen("quotes")
@@ -76,6 +77,12 @@ val bottomNavItems = listOf(
         label = "Finance",
         selectedIcon = Icons.Filled.AccountBalance,
         unselectedIcon = Icons.Outlined.AccountBalance
+    ),
+    BottomNavItem(
+        screen = Screen.Academic,
+        label = "Academic",
+        selectedIcon = Icons.Filled.School,
+        unselectedIcon = Icons.Outlined.School
     ),
     BottomNavItem(
         screen = Screen.Vocabulary,

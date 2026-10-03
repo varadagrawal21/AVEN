@@ -1,24 +1,29 @@
 package com.lifetracker.ui.custom
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.lifetracker.ui.navigation.Screen
 import com.lifetracker.data.db.CustomEntryEntity
 import com.lifetracker.data.db.CustomSectionEntity
 import com.lifetracker.ui.components.*
-import com.lifetracker.ui.navigation.Screen
-import com.lifetracker.ui.theme.CustomGray
+import com.lifetracker.ui.theme.*
+import androidx.compose.ui.window.DialogProperties
 import com.lifetracker.viewmodel.CustomViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,12 +38,15 @@ fun CustomScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("⚙️ Custom Sections") })
+            GlassTopAppBar(title = "Custom Sections")
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }, containerColor = CustomGray) {
-                Icon(Icons.Default.Add, contentDescription = "Add Section")
-            }
+            GlassFloatingActionButton(
+                onClick = { showAddDialog = true },
+                icon = Icons.Default.Add,
+                contentDescription = "Add Section",
+                accentColor = CustomGray
+            )
         }
     ) { padding ->
         if (state.sections.isEmpty()) {
@@ -84,27 +92,48 @@ fun CustomScreen(
 }
 
 @Composable
-fun CustomSectionItem(section: CustomSectionEntity, onClick: () -> Unit, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+fun CustomSectionItem(
+    section: CustomSectionEntity,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    GlassListItem(onClick = onClick) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(section.icon, style = MaterialTheme.typography.headlineMedium)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(CustomGray.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(section.icon, style = MaterialTheme.typography.titleMedium, color = CustomGray)
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(section.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        section.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = WhiteHigh
+                    )
                     if (section.description.isNotEmpty()) {
-                        Text(section.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            section.description,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WhiteMedium
+                        )
                     }
                 }
             }
-            Row {
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = WhiteMinimal)
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
                 }
             }
         }
@@ -118,25 +147,45 @@ fun AddSectionDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var icon by remember { mutableStateOf("📝") }
+    var icon by remember { mutableStateOf("") }
     var color by remember { mutableStateOf("#2196F3") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create Custom Section") },
+        containerColor = GlassHeavy,
+        title = { Text("Create Custom Section", color = WhiteHigh) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Section Name *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = icon, onValueChange = { icon = it }, label = { Text("Icon (emoji)") }, modifier = Modifier.fillMaxWidth())
+                GlassTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "Section Name *",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = "Description",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = icon,
+                    onValueChange = { icon = it },
+                    label = "Icon (emoji)",
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
-            Button(onClick = {
+            GlassPrimaryButton(onClick = {
                 if (name.isNotBlank()) onAdd(name, description, icon, color)
             }) { Text("Create") }
         },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = {
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }
 
@@ -159,24 +208,30 @@ fun CustomSectionDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(section?.let { "${it.icon} ${it.name}" } ?: "Section") },
+            GlassTopAppBar(
+                title = section?.let { "${it.icon} ${it.name}" } ?: "Section",
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteHigh)
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddEntryDialog = true }, containerColor = CustomGray) {
-                Icon(Icons.Default.Add, contentDescription = "Add Entry")
-            }
+            GlassFloatingActionButton(
+                onClick = { showAddEntryDialog = true },
+                icon = Icons.Default.Add,
+                contentDescription = "Add Entry",
+                accentColor = CustomGray
+            )
         }
     ) { padding ->
         if (state.selectedSectionEntries.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                EmptyStateView(message = "No entries yet. Tap + to add.", icon = Icons.Default.NoteAdd)
+                EmptyStateView(
+                    message = "No entries yet. Tap + to add.",
+                    icon = Icons.Default.NoteAdd
+                )
             }
         } else {
             LazyColumn(
@@ -185,18 +240,26 @@ fun CustomSectionDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(state.selectedSectionEntries) { entry ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    GlassListItem(onClick = null) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(entry.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                if (entry.content.isNotEmpty()) Text(entry.content, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(entry.date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    entry.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WhiteHigh
+                                )
+                                if (entry.content.isNotEmpty()) {
+                                    Text(entry.content, style = MaterialTheme.typography.bodySmall, color = WhiteMedium)
+                                }
+                                Text(entry.date, style = MaterialTheme.typography.labelSmall, color = WhiteLow)
                             }
                             IconButton(onClick = { entryToDelete = entry }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
                             }
                         }
                     }
@@ -206,19 +269,13 @@ fun CustomSectionDetailScreen(
     }
 
     if (showAddEntryDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddEntryDialog = false },
-            title = { Text("Add Entry") },
-            text = {
-                var title by remember { mutableStateOf("") }
-                var content by remember { mutableStateOf("") }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title *") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = content, onValueChange = { content = it }, label = { Text("Content") }, minLines = 3, modifier = Modifier.fillMaxWidth())
-                }
-            },
-            confirmButton = {},
-            dismissButton = { OutlinedButton(onClick = { showAddEntryDialog = false }) { Text("Cancel") } }
+        AddEntryDialog(
+            sectionId = sectionId,
+            onDismiss = { showAddEntryDialog = false },
+            onAdd = { title, content ->
+                viewModel.addEntry(sectionId, title, content)
+                showAddEntryDialog = false
+            }
         )
     }
 
@@ -228,4 +285,47 @@ fun CustomSectionDetailScreen(
             onDismiss = { entryToDelete = null }
         )
     }
+}
+
+@Composable
+private fun AddEntryDialog(
+    sectionId: Long,
+    onDismiss: () -> Unit,
+    onAdd: (String, String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var content by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = GlassHeavy,
+        title = { Text("Add Entry", color = WhiteHigh) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = "Title *",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                GlassTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    label = "Content",
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            GlassPrimaryButton(onClick = {
+                if (title.isNotBlank()) onAdd(title, content)
+            }) { Text("Add") }
+        },
+        dismissButton = {
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    )
 }

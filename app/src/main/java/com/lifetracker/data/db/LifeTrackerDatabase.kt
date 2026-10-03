@@ -1,6 +1,8 @@
 package com.lifetracker.data.db
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
@@ -19,7 +21,7 @@ import androidx.room.RoomDatabase
         CustomEntryEntity::class,
         NotificationPrefEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class LifeTrackerDatabase : RoomDatabase() {
@@ -39,5 +41,21 @@ abstract class LifeTrackerDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "lifetracker_db"
+
+        @Volatile
+        private var instance: LifeTrackerDatabase? = null
+
+        fun getInstance(context: Context): LifeTrackerDatabase {
+            return instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    LifeTrackerDatabase::class.java,
+                    DATABASE_NAME
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
+                    .also { instance = it }
+            }
+        }
     }
 }

@@ -1,13 +1,22 @@
 package com.lifetracker
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -31,74 +40,127 @@ import com.lifetracker.ui.quotes.QuoteDetailScreen
 import com.lifetracker.ui.quotes.QuotesScreen
 import com.lifetracker.ui.settings.SettingsScreen
 import com.lifetracker.ui.theme.LifeTrackerTheme
+import com.lifetracker.ui.theme.*
 import com.lifetracker.ui.vocabulary.VocabDetailScreen
 import com.lifetracker.ui.vocabulary.VocabularyScreen
+import com.lifetracker.ui.components.*
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private var notificationDestination by mutableStateOf<String?>(null)
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        notificationDestination = intent?.getStringExtra("navigate_to")
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         setContent {
             LifeTrackerTheme {
-                LifeTrackerApp()
+                LifeTrackerAppContent(initialDestination = notificationDestination)
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        notificationDestination = intent.getStringExtra("navigate_to")
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LifeTrackerApp() {
+fun LifeTrackerAppContent(initialDestination: String? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // Screens that show the bottom nav bar
+    LaunchedEffect(initialDestination) {
+        val route = when (initialDestination) {
+            "hydration" -> Screen.Hydration.route
+            "health" -> Screen.Health.route
+            "finance" -> Screen.Finance.route
+            "academic" -> Screen.Academic.route
+            "vocabulary" -> Screen.Vocabulary.route
+            "books" -> Screen.Books.route
+            "quotes" -> Screen.Quotes.route
+            "people" -> Screen.People.route
+            "custom" -> Screen.Custom.route
+            "settings" -> Screen.Settings.route
+            else -> null
+        }
+        if (route != null) {
+            navController.navigate(route) {
+                popUpTo(Screen.Dashboard.route) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
     val topLevelRoutes = bottomNavItems.map { it.screen.route }
     val showBottomBar = currentDestination?.route in topLevelRoutes
+    
+    val navItems = bottomNavItems.mapIndexed { index, item ->
+        NavItem(
+            route = item.screen.route,
+            label = item.label,
+            selectedIcon = item.selectedIcon,
+            unselectedIcon = item.unselectedIcon,
+            accentColor = when (item.screen) {
+                Screen.Dashboard -> AccentBlue
+                Screen.Hydration -> HydrationBlue
+                Screen.Health -> HealthGreen
+                Screen.Finance -> FinanceGold
+                Screen.Academic -> AcademicOrange
+                Screen.Vocabulary -> VocabPurple
+                Screen.Books -> BooksIndigo
+                Screen.Quotes -> QuotesTeal
+                Screen.People -> PeoplePink
+                Screen.Custom -> CustomGray
+                Screen.Settings -> SettingsBlue
+                else -> AccentBlue
+            }
+        )
+    }
+
+    val selectedNavIndex = navItems.indexOfFirst { it.route == currentDestination?.route }
+        .takeIf { it >= 0 } ?: 0
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
-                    bottomNavItems.forEach { item ->
-                        val selected = currentDestination?.hierarchy?.any {
-                            it.route == item.screen.route
-                        } == true
-
-                        NavigationBarItem(
-                            icon = {
-                                Icon(
-                                    imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                    contentDescription = item.label
-                                )
-                            },
-                            label = { Text(item.label) },
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(item.screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                GlassScrollingNavigationBar(
+                    items = navItems,
+                    selectedItemIndex = selectedNavIndex,
+                    onItemSelected = { index ->
+                        val route = navItems[index].route
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
                             }
-                        )
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
-                }
+                )
             }
-        }
+        },
+        containerColor = BlackPure
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = Screen.Dashboard.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // Top-level destinations
             composable(Screen.Dashboard.route) {
                 DashboardScreen(navController = navController)
             }
@@ -110,6 +172,9 @@ fun LifeTrackerApp() {
             }
             composable(Screen.Finance.route) {
                 FinanceScreen()
+            }
+            composable(Screen.Academic.route) {
+                AcademicScreen()
             }
             composable(Screen.Vocabulary.route) {
                 VocabularyScreen(navController = navController)
@@ -130,7 +195,6 @@ fun LifeTrackerApp() {
                 SettingsScreen()
             }
 
-            // Detail screens
             composable(
                 route = Screen.BookDetail.route,
                 arguments = listOf(navArgument("bookId") { type = NavType.LongType })

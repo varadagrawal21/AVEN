@@ -16,7 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lifetracker.data.db.AcademicSessionEntity
 import com.lifetracker.ui.components.*
-import com.lifetracker.ui.theme.AcademicOrange
+import com.lifetracker.ui.theme.*
+import androidx.compose.ui.window.DialogProperties
 import com.lifetracker.viewmodel.AcademicViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,15 +31,15 @@ fun AcademicScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("🎓 Academic") })
+            GlassTopAppBar(title = "Academic")
         },
         floatingActionButton = {
-            FloatingActionButton(
+            GlassFloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = AcademicOrange
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Log Study Session")
-            }
+                icon = Icons.Default.Add,
+                contentDescription = "Log Study Session",
+                accentColor = AcademicOrange
+            )
         }
     ) { padding ->
         LazyColumn(
@@ -48,55 +49,62 @@ fun AcademicScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Today's summary
             item {
-                StatCard(
+                DashboardStatCard(
                     title = "Today's Study Time",
-                    value = "${state.todayTotalMinutes} min",
-                    subtitle = "${state.todayTotalMinutes / 60}h ${state.todayTotalMinutes % 60}m",
+                    value = "${state.todayTotalMinutes}",
+                    subtitle = "minutes",
                     icon = Icons.Default.Timer,
-                    accentColor = AcademicOrange
+                    accentColor = AcademicOrange,
+                    onClick = null
                 )
             }
 
-            // Subject breakdown
             if (state.subjectTimes.isNotEmpty()) {
                 item {
-                    SectionHeader(title = "Time per Subject (All Time)")
+                    SectionHeader(title = "Time per Subject")
                 }
                 items(state.subjectTimes) { subjectTime ->
                     val maxMinutes = state.subjectTimes.maxOf { it.totalMinutes }.toFloat()
                     val progress = if (maxMinutes > 0) subjectTime.totalMinutes / maxMinutes else 0f
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(subjectTime.subject, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "${subjectTime.totalMinutes / 60}h ${subjectTime.totalMinutes % 60}m",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    GlassCard(elevation = GlassElevation.Thin) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    subjectTime.subject,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WhiteHigh
+                                )
+                                Text(
+                                    "${subjectTime.totalMinutes / 60}h ${subjectTime.totalMinutes % 60}m",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AcademicOrange
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = AcademicOrange,
+                                trackColor = GlassThin,
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = AcademicOrange
-                        )
                     }
                 }
             }
 
-            // Today's sessions
             item {
                 SectionHeader(title = "Today's Sessions")
             }
             if (state.todaySessions.isEmpty()) {
                 item {
                     EmptyStateView(
-                        message = "No study sessions today. Start studying! 📚",
+                        message = "No study sessions today. Start studying!",
                         icon = Icons.Default.School
                     )
                 }
@@ -131,24 +139,27 @@ fun AcademicScreen(
 
 @Composable
 fun AcademicSessionItem(session: AcademicSessionEntity, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    GlassListItem(onClick = null) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(session.subject, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "${session.durationMinutes} min${if (session.topic.isNotEmpty()) " • ${session.topic}" else ""}",
+                    session.subject,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = WhiteHigh
+                )
+                Text(
+                    "${session.durationMinutes} min${if (session.topic.isNotEmpty()) " - ${session.topic}" else ""}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = WhiteMedium
                 )
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
             }
         }
     }
@@ -166,34 +177,39 @@ fun AddStudySessionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log Study Session") },
+        containerColor = GlassHeavy,
+        title = { Text("Log Study Session", color = WhiteHigh) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = subject, onValueChange = { subject = it },
-                    label = { Text("Subject *") },
+                GlassTextField(
+                    value = subject,
+                    onValueChange = { subject = it },
+                    label = "Subject *",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = durationText, onValueChange = { durationText = it },
-                    label = { Text("Duration (minutes) *") },
+                GlassTextField(
+                    value = durationText,
+                    onValueChange = { durationText = it },
+                    label = "Duration (minutes) *",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = topic, onValueChange = { topic = it },
-                    label = { Text("Topic") },
+                GlassTextField(
+                    value = topic,
+                    onValueChange = { topic = it },
+                    label = "Topic",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = notes, onValueChange = { notes = it },
-                    label = { Text("Notes") },
+                GlassTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Notes",
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
+            GlassPrimaryButton(onClick = {
                 val duration = durationText.toIntOrNull() ?: 0
                 if (subject.isNotBlank() && duration > 0) {
                     onAdd(subject, duration, topic, notes)
@@ -201,7 +217,9 @@ fun AddStudySessionDialog(
             }) { Text("Add") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }

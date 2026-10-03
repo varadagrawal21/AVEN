@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LifeTracker</string>
+    <string name="app_name">AVEN</string>
 
     <!-- Navigation Labels -->
     <string name="nav_dashboard">Dashboard</string>

@@ -73,6 +73,7 @@ data class VocabularyEntity(
     val meaning: String,
     val exampleSentence: String = "",
     val partOfSpeech: String = "",  // noun, verb, adjective, etc.
+    val pronunciationAudioUrl: String = "",
     val dateAdded: String,          // "YYYY-MM-DD"
     val timestamp: Long = System.currentTimeMillis()
 )

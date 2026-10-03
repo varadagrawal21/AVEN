@@ -2,6 +2,8 @@ package com.lifetracker.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lifetracker.data.dictionary.DictionaryEntry
+import com.lifetracker.data.dictionary.MerriamWebsterClient
 import com.lifetracker.data.db.VocabularyEntity
 import com.lifetracker.data.repository.VocabularyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,12 +15,16 @@ data class VocabularyState(
     val words: List<VocabularyEntity> = emptyList(),
     val searchQuery: String = "",
     val wordCount: Int = 0,
-    val selectedWord: VocabularyEntity? = null
+    val selectedWord: VocabularyEntity? = null,
+    val dictionaryEntry: DictionaryEntry? = null,
+    val isLookingUp: Boolean = false,
+    val lookupError: String? = null
 )
 
 @HiltViewModel
 class VocabularyViewModel @Inject constructor(
-    private val repo: VocabularyRepository
+    private val repo: VocabularyRepository,
+    private val dictionaryClient: MerriamWebsterClient
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -52,6 +58,39 @@ class VocabularyViewModel @Inject constructor(
         viewModelScope.launch {
             repo.addWord(word, meaning, example, partOfSpeech)
         }
+    }
+
+    fun addWord(entry: DictionaryEntry) {
+        viewModelScope.launch {
+            repo.addWord(
+                word = entry.word,
+                meaning = entry.meaning,
+                exampleSentence = entry.exampleSentence,
+                partOfSpeech = entry.partOfSpeech,
+                pronunciationAudioUrl = entry.pronunciationAudioUrl
+            )
+        }
+    }
+
+    fun lookupWord(word: String) {
+        if (word.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(isLookingUp = true, lookupError = null) }
+            dictionaryClient.lookup(word).fold(
+                onSuccess = { entry ->
+                    _state.update { it.copy(dictionaryEntry = entry, isLookingUp = false) }
+                },
+                onFailure = { error ->
+                    _state.update {
+                        it.copy(isLookingUp = false, lookupError = error.message ?: "Lookup failed.")
+                    }
+                }
+            )
+        }
+    }
+
+    fun clearDictionaryEntry() {
+        _state.update { it.copy(dictionaryEntry = null, lookupError = null) }
     }
 
     fun updateWord(word: VocabularyEntity) {

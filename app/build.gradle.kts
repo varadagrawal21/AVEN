@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -10,6 +12,11 @@ android {
     namespace = "com.lifetracker"
     compileSdk = 35
 
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.lifetracker"
         minSdk = 26
@@ -17,7 +24,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.lifetracker.HiltTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -47,13 +54,22 @@ android {
         jvmTarget = "17"
     }
 
-    buildFeatures {
-        compose = true
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(localProperties::load)
+    }
+    val dictionaryApiKey = providers.gradleProperty("mwDictionaryApiKey").orNull
+        ?: localProperties.getProperty("mwDictionaryApiKey", "")
+    buildTypes.configureEach {
+        buildConfigField("String", "MW_DICTIONARY_API_KEY", "\"$dictionaryApiKey\"")
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/LICENSE-notice.md"
         }
     }
 }
@@ -101,8 +117,6 @@ dependencies {
     // Charts
     implementation(libs.mpandroidchart)
 
-    // PDF Viewer
-    implementation(libs.androidpdfviewer)
 
     // Coil
     implementation(libs.coil.compose)
@@ -119,6 +133,8 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.mockk.android)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

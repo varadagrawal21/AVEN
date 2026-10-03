@@ -1,20 +1,25 @@
 package com.lifetracker.ui.books
 
-import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,11 +27,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.lifetracker.ui.navigation.Screen
 import com.lifetracker.data.db.BookEntity
 import com.lifetracker.data.db.BookNoteEntity
 import com.lifetracker.ui.components.*
-import com.lifetracker.ui.navigation.Screen
-import com.lifetracker.ui.theme.BooksIndigo
+import com.lifetracker.ui.theme.*
+import androidx.compose.ui.window.DialogProperties
 import com.lifetracker.viewmodel.BooksViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,15 +47,15 @@ fun BooksScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("📚 Books & Growth") })
+            GlassTopAppBar(title = "Books & Growth")
         },
         floatingActionButton = {
-            FloatingActionButton(
+            GlassFloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = BooksIndigo
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Book")
-            }
+                icon = Icons.Default.Add,
+                contentDescription = "Add Book",
+                accentColor = BooksIndigo
+            )
         }
     ) { padding ->
         LazyColumn(
@@ -60,12 +66,13 @@ fun BooksScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                StatCard(
+                DashboardStatCard(
                     title = "Books Completed",
                     value = "${state.completedCount}",
-                    subtitle = "${state.readingBooks.size} currently reading",
+                    subtitle = "${state.readingBooks.size} reading",
                     icon = Icons.Default.LibraryBooks,
-                    accentColor = BooksIndigo
+                    accentColor = BooksIndigo,
+                    onClick = null
                 )
             }
 
@@ -96,7 +103,7 @@ fun BooksScreen(
             if (state.allBooks.isEmpty()) {
                 item {
                     EmptyStateView(
-                        message = "No books yet. Add your first book! 📚",
+                        message = "No books yet. Add your first book!",
                         icon = Icons.Default.LibraryBooks
                     )
                 }
@@ -132,25 +139,28 @@ fun BookItem(
     onDelete: () -> Unit,
     progress: Float
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    GlassListItem(onClick = onClick) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(book.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        book.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = WhiteHigh,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     if (book.author.isNotEmpty()) {
-                        Text(book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(book.author, style = MaterialTheme.typography.labelSmall, color = WhiteMedium)
                     }
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
                 }
             }
             if (book.totalPages > 0) {
@@ -161,21 +171,22 @@ fun BookItem(
                 ) {
                     Text(
                         "${book.pagesRead} / ${book.totalPages} pages",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.labelSmall,
+                        color = WhiteMedium
                     )
                     Text(
                         "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = BooksIndigo,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.fillMaxWidth(),
-                    color = BooksIndigo
+                    color = BooksIndigo,
+                    trackColor = GlassThin
                 )
             }
         }
@@ -200,45 +211,51 @@ fun AddBookDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Book") },
+        containerColor = GlassHeavy,
+        title = { Text("Add Book", color = WhiteHigh) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = title, onValueChange = { title = it },
-                    label = { Text("Title *") },
+                GlassTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = "Title *",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = author, onValueChange = { author = it },
-                    label = { Text("Author") },
+                GlassTextField(
+                    value = author,
+                    onValueChange = { author = it },
+                    label = "Author",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = pagesText, onValueChange = { pagesText = it },
-                    label = { Text("Total Pages") },
+                GlassTextField(
+                    value = pagesText,
+                    onValueChange = { pagesText = it },
+                    label = "Total Pages",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedButton(
+                GlassOutlineButton(
                     onClick = { pdfLauncher.launch("application/pdf") },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null)
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = WhiteHigh)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (pdfUri.isEmpty()) "Attach PDF (optional)" else "PDF attached ✓")
+                    Text(if (pdfUri.isEmpty()) "Attach PDF" else "PDF attached", color = WhiteHigh)
                 }
             }
         },
         confirmButton = {
-            Button(onClick = {
+            GlassPrimaryButton(onClick = {
                 if (title.isNotBlank()) {
                     onAdd(title, author, pagesText.toIntOrNull() ?: 0, pdfUri)
                 }
             }) { Text("Add") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }
 
@@ -261,18 +278,18 @@ fun BookDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(book?.title ?: "Book Detail", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            GlassTopAppBar(
+                title = book?.title ?: "Book Detail",
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteHigh)
                     }
                 },
                 actions = {
                     book?.let { b ->
                         if (b.pdfUri.isNotEmpty()) {
                             IconButton(onClick = { navController.navigate(Screen.PdfViewer.createRoute(bookId)) }) {
-                                Icon(Icons.Default.PictureAsPdf, contentDescription = "Open PDF")
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = "Open PDF", tint = WhiteHigh)
                             }
                         }
                     }
@@ -280,9 +297,12 @@ fun BookDetailScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddNoteDialog = true }, containerColor = BooksIndigo) {
-                Icon(Icons.Default.NoteAdd, contentDescription = "Add Note")
-            }
+            GlassFloatingActionButton(
+                onClick = { showAddNoteDialog = true },
+                icon = Icons.Default.NoteAdd,
+                contentDescription = "Add Note",
+                accentColor = BooksIndigo
+            )
         }
     ) { padding ->
         book?.let { b ->
@@ -294,21 +314,39 @@ fun BookDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    GlassCard(elevation = GlassElevation.Medium) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text(b.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            if (b.author.isNotEmpty()) Text(b.author, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                b.title,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = WhiteHigh
+                            )
+                            if (b.author.isNotEmpty()) {
+                                Text(b.author, style = MaterialTheme.typography.bodyMedium, color = WhiteMedium)
+                            }
                             Spacer(modifier = Modifier.height(12.dp))
                             if (b.totalPages > 0) {
                                 val progress = viewModel.getReadingProgress(b)
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("${b.pagesRead} / ${b.totalPages} pages", style = MaterialTheme.typography.bodySmall)
-                                    Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = BooksIndigo, fontWeight = FontWeight.Bold)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("${b.pagesRead} / ${b.totalPages} pages", style = MaterialTheme.typography.labelSmall, color = WhiteMedium)
+                                    Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = BooksIndigo, fontWeight = FontWeight.Bold)
                                 }
-                                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), color = BooksIndigo)
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = BooksIndigo,
+                                    trackColor = GlassThin
+                                )
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
-                            OutlinedButton(onClick = { showUpdatePagesDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                            GlassOutlineButton(
+                                onClick = { showUpdatePagesDialog = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text("Update Progress")
                             }
                         }
@@ -318,7 +356,12 @@ fun BookDetailScreen(
                 item { SectionHeader(title = "Notes & Learnings") }
 
                 if (state.bookNotes.isEmpty()) {
-                    item { EmptyStateView(message = "No notes yet. Tap + to add learnings.", icon = Icons.Default.NoteAdd) }
+                    item {
+                        EmptyStateView(
+                            message = "No notes yet. Tap + to add learnings.",
+                            icon = Icons.Default.NoteAdd
+                        )
+                    }
                 } else {
                     items(state.bookNotes) { note ->
                         BookNoteItem(note = note, onDelete = { viewModel.deleteNote(note) })
@@ -355,55 +398,78 @@ fun BookDetailScreen(
 
 @Composable
 fun BookNoteItem(note: BookNoteEntity, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    GlassListItem(onClick = null) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AssistChip(onClick = {}, label = { Text(note.noteType, style = MaterialTheme.typography.labelSmall) })
+                    SuggestionChip(
+                        onClick = {},
+                        label = { Text(note.noteType, style = MaterialTheme.typography.labelSmall) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = GlassThin,
+                            labelColor = WhiteHigh
+                        )
+                    )
                     if (note.pageNumber > 0) {
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("p.${note.pageNumber}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("p.${note.pageNumber}", style = MaterialTheme.typography.labelSmall, color = WhiteMedium)
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(note.content, style = MaterialTheme.typography.bodyMedium)
+                Text(note.content, style = MaterialTheme.typography.bodyMedium, color = WhiteHigh)
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
             }
         }
     }
 }
 
 @Composable
-fun UpdatePagesDialog(currentPages: Int, totalPages: Int, onDismiss: () -> Unit, onUpdate: (Int) -> Unit) {
+fun UpdatePagesDialog(
+    currentPages: Int,
+    totalPages: Int,
+    onDismiss: () -> Unit,
+    onUpdate: (Int) -> Unit
+) {
     var pagesText by remember { mutableStateOf(currentPages.toString()) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Update Reading Progress") },
+        containerColor = GlassHeavy,
+        title = { Text("Update Reading Progress", color = WhiteHigh) },
         text = {
-            OutlinedTextField(
-                value = pagesText, onValueChange = { pagesText = it },
-                label = { Text("Pages Read (of $totalPages)") },
+            GlassTextField(
+                value = pagesText,
+                onValueChange = { pagesText = it },
+                label = "Pages Read (of $totalPages)",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
-            Button(onClick = { onUpdate(pagesText.toIntOrNull() ?: currentPages) }) { Text("Update") }
+            GlassPrimaryButton(
+                onClick = { onUpdate(pagesText.toIntOrNull() ?: currentPages) }
+            ) { Text("Update") }
         },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = {
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddNoteDialog(onDismiss: () -> Unit, onAdd: (String, String, Int) -> Unit) {
+fun AddNoteDialog(
+    onDismiss: () -> Unit,
+    onAdd: (String, String, Int) -> Unit
+) {
     var content by remember { mutableStateOf("") }
     var noteType by remember { mutableStateOf("LEARNING") }
     var pageText by remember { mutableStateOf("") }
@@ -411,7 +477,8 @@ fun AddNoteDialog(onDismiss: () -> Unit, onAdd: (String, String, Int) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Note") },
+        containerColor = GlassHeavy,
+        title = { Text("Add Note", color = WhiteHigh) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -419,30 +486,42 @@ fun AddNoteDialog(onDismiss: () -> Unit, onAdd: (String, String, Int) -> Unit) {
                         FilterChip(
                             selected = noteType == type,
                             onClick = { noteType = type },
-                            label = { Text(type, style = MaterialTheme.typography.labelSmall) }
+                            label = { Text(type, style = MaterialTheme.typography.labelSmall, color = WhiteHigh) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = GlassThin,
+                                selectedContainerColor = BooksIndigo.copy(alpha = 0.3f)
+                            )
                         )
                     }
                 }
-                OutlinedTextField(
-                    value = content, onValueChange = { content = it },
-                    label = { Text("Note *") },
+                GlassTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    label = "Note *",
                     minLines = 3,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = pageText, onValueChange = { pageText = it },
-                    label = { Text("Page number") },
+                GlassTextField(
+                    value = pageText,
+                    onValueChange = { pageText = it },
+                    label = "Page number",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                if (content.isNotBlank()) onAdd(content, noteType, pageText.toIntOrNull() ?: 0)
-            }) { Text("Add") }
+            GlassPrimaryButton(
+                onClick = {
+                    if (content.isNotBlank()) onAdd(content, noteType, pageText.toIntOrNull() ?: 0)
+                }
+            ) { Text("Add") }
         },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = {
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }
 
@@ -461,11 +540,11 @@ fun PdfViewerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("PDF Viewer") },
+            GlassTopAppBar(
+                title = "PDF Viewer",
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteHigh)
                     }
                 }
             )
@@ -479,24 +558,115 @@ fun PdfViewerScreen(
         ) {
             book?.let { b ->
                 if (b.pdfUri.isNotEmpty()) {
-                    // AndroidPdfViewer is a View-based library; use AndroidView to embed it
-                    androidx.compose.ui.viewinterop.AndroidView(
-                        factory = { context ->
-                            com.github.barteksc.pdfviewer.PDFView(context, null).apply {
-                                fromUri(Uri.parse(b.pdfUri))
-                                    .enableSwipe(true)
-                                    .swipeHorizontal(false)
-                                    .enableDoubletap(true)
-                                    .defaultPage(0)
-                                    .load()
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    NativePdfViewer(uriString = b.pdfUri)
                 } else {
-                    Text("No PDF attached to this book.")
+                    Text("No PDF attached to this book.", color = WhiteMedium)
                 }
-            } ?: CircularProgressIndicator()
+            } ?: CircularProgressIndicator(color = BooksIndigo)
+        }
+    }
+}
+
+@Composable
+fun NativePdfViewer(uriString: String) {
+    val context = LocalContext.current
+    var pageCount by remember { mutableStateOf(0) }
+    var renderer by remember { mutableStateOf<PdfRenderer?>(null) }
+    var fileDescriptor by remember { mutableStateOf<ParcelFileDescriptor?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(uriString) {
+        try {
+            val uri = Uri.parse(uriString)
+            val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+            if (pfd != null) {
+                fileDescriptor = pfd
+                val pdfRenderer = PdfRenderer(pfd)
+                renderer = pdfRenderer
+                pageCount = pdfRenderer.pageCount
+            } else {
+                errorMessage = "Could not open PDF file."
+            }
+        } catch (e: Exception) {
+            errorMessage = e.localizedMessage ?: "Error loading PDF"
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                renderer?.close()
+                fileDescriptor?.close()
+            } catch (_: Exception) { }
+        }
+    }
+
+    if (errorMessage != null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Error: $errorMessage", color = ErrorColor)
+        }
+    } else if (pageCount == 0) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = BooksIndigo)
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(pageCount) { pageIndex ->
+                PdfPageCard(renderer = renderer, pageIndex = pageIndex)
+            }
+        }
+    }
+}
+
+@Composable
+fun PdfPageCard(renderer: PdfRenderer?, pageIndex: Int) {
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(renderer, pageIndex) {
+        if (renderer != null) {
+            try {
+                val page = renderer.openPage(pageIndex)
+                val width = page.width * 2
+                val height = page.height * 2
+                val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                bmp.eraseColor(Color.WHITE)
+                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                page.close()
+                bitmap = bmp
+            } catch (_: Exception) { }
+        }
+    }
+
+    GlassCard(elevation = GlassElevation.Medium) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            contentAlignment = Alignment.Center
+        ) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap!!.asImageBitmap(),
+                    contentDescription = "Page ${pageIndex + 1}",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(bitmap!!.width.toFloat() / bitmap!!.height.toFloat())
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BooksIndigo)
+                }
+            }
         }
     }
 }

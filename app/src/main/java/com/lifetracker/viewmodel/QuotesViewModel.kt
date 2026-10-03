@@ -73,6 +73,12 @@ class QuotesViewModel @Inject constructor(
         }
     }
 
+    fun updateQuote(quote: QuoteEntity) {
+        viewModelScope.launch {
+            repo.updateQuote(quote)
+        }
+    }
+
     fun toggleFavorite(quote: QuoteEntity) {
         viewModelScope.launch {
             repo.toggleFavorite(quote)

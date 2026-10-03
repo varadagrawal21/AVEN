@@ -1,6 +1,7 @@
 package com.lifetracker.ui.vocabulary
 
-import androidx.compose.foundation.clickable
+import android.media.MediaPlayer
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,11 +16,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.lifetracker.ui.navigation.Screen
 import com.lifetracker.data.db.VocabularyEntity
 import com.lifetracker.ui.components.*
-import com.lifetracker.ui.navigation.Screen
-import com.lifetracker.ui.theme.VocabPurple
+import com.lifetracker.ui.theme.*
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalContext
+import com.lifetracker.data.dictionary.DictionaryEntry
 import com.lifetracker.viewmodel.VocabularyViewModel
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,15 +38,22 @@ fun VocabularyScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("📖 Vocabulary (${state.wordCount} words)") })
+            GlassTopAppBar(
+                title = "Vocabulary (${state.wordCount})",
+                actions = {
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Word", tint = WhiteHigh)
+                    }
+                }
+            )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            GlassFloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = VocabPurple
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Word")
-            }
+                icon = Icons.Default.Add,
+                contentDescription = "Add Word",
+                accentColor = VocabPurple
+            )
         }
     ) { padding ->
         Column(
@@ -49,19 +61,15 @@ fun VocabularyScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Search bar
-            OutlinedTextField(
+            GlassTextField(
                 value = state.searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                label = { Text("Search words...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (state.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                },
+                label = "Search words...",
+                leadingIcon = Icons.Default.Search,
+                trailingIcon = if (state.searchQuery.isNotEmpty()) Icons.Default.Clear else null,
+                onTrailingIconClick = if (state.searchQuery.isNotEmpty()) {
+                    { viewModel.setSearchQuery("") }
+                } else null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
@@ -93,10 +101,18 @@ fun VocabularyScreen(
 
     if (showAddDialog) {
         AddWordDialog(
-            onDismiss = { showAddDialog = false },
-            onAdd = { word, meaning, example, pos ->
-                viewModel.addWord(word, meaning, example, pos)
+            lookupResult = state.dictionaryEntry,
+            isLookingUp = state.isLookingUp,
+            lookupError = state.lookupError,
+            onLookup = viewModel::lookupWord,
+            onDismiss = {
                 showAddDialog = false
+                viewModel.clearDictionaryEntry()
+            },
+            onAdd = { entry ->
+                viewModel.addWord(entry)
+                showAddDialog = false
+                viewModel.clearDictionaryEntry()
             }
         )
     }
@@ -118,15 +134,9 @@ fun VocabWordItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
+    GlassListItem(onClick = onClick) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -142,26 +152,26 @@ fun VocabWordItem(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             "(${word.partOfSpeech})",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WhiteMedium
                         )
                     }
                 }
                 Text(
                     word.meaning,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = WhiteMedium
                 )
                 Text(
                     word.dateAdded,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WhiteLow
                 )
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
             }
         }
     }
@@ -169,54 +179,96 @@ fun VocabWordItem(
 
 @Composable
 fun AddWordDialog(
+    lookupResult: DictionaryEntry? = null,
+    isLookingUp: Boolean = false,
+    lookupError: String? = null,
+    onLookup: (String) -> Unit = {},
     onDismiss: () -> Unit,
-    onAdd: (String, String, String, String) -> Unit
+    onAdd: (DictionaryEntry) -> Unit
 ) {
     var word by remember { mutableStateOf("") }
     var meaning by remember { mutableStateOf("") }
     var example by remember { mutableStateOf("") }
     var partOfSpeech by remember { mutableStateOf("") }
 
+    LaunchedEffect(lookupResult) {
+        lookupResult?.let { result ->
+            word = result.word
+            meaning = result.meaning
+            example = result.exampleSentence
+            partOfSpeech = result.partOfSpeech
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add New Word") },
+        containerColor = GlassHeavy,
+        title = { Text("Add New Word", color = WhiteHigh) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = word, onValueChange = { word = it },
-                    label = { Text("Word *") },
+                GlassTextField(
+                    value = word,
+                    onValueChange = { word = it },
+                    label = "Word *",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = meaning, onValueChange = { meaning = it },
-                    label = { Text("Meaning *") },
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    GlassOutlineButton(
+                        onClick = { onLookup(word) },
+                        enabled = word.isNotBlank() && !isLookingUp
+                    ) {
+                        Text(if (isLookingUp) "Looking up..." else "Look up")
+                    }
+                }
+                lookupError?.let { error ->
+                    Text(error, style = MaterialTheme.typography.labelSmall, color = ErrorColor)
+                }
+                GlassTextField(
+                    value = meaning,
+                    onValueChange = { meaning = it },
+                    label = "Meaning *",
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = example, onValueChange = { example = it },
-                    label = { Text("Example sentence") },
+                GlassTextField(
+                    value = example,
+                    onValueChange = { example = it },
+                    label = "Example sentence",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = partOfSpeech, onValueChange = { partOfSpeech = it },
-                    label = { Text("Part of speech (noun, verb...)") },
+                GlassTextField(
+                    value = partOfSpeech,
+                    onValueChange = { partOfSpeech = it },
+                    label = "Part of speech",
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(
+            GlassPrimaryButton(
                 onClick = {
                     if (word.isNotBlank() && meaning.isNotBlank()) {
-                        onAdd(word, meaning, example, partOfSpeech)
+                        onAdd(
+                            DictionaryEntry(
+                                word = word,
+                                meaning = meaning,
+                                exampleSentence = example,
+                                partOfSpeech = partOfSpeech,
+                                pronunciationAudioUrl = lookupResult?.pronunciationAudioUrl.orEmpty()
+                            )
+                        )
                     }
                 }
             ) { Text("Add") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }
 
@@ -229,23 +281,46 @@ fun VocabDetailScreen(
 ) {
     var word by remember { mutableStateOf<VocabularyEntity?>(null) }
     var showEditDialog by remember { mutableStateOf(false) }
+    var isAudioReady by remember { mutableStateOf(false) }
+    var isPlaying by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(wordId) {
         word = viewModel.getWordById(wordId)
     }
 
+    val audioUrl = word?.pronunciationAudioUrl.orEmpty()
+    val mediaPlayer = remember(audioUrl) { MediaPlayer() }
+    DisposableEffect(audioUrl) {
+        if (audioUrl.isNotBlank()) {
+            mediaPlayer.setDataSource(context, Uri.parse(audioUrl))
+            mediaPlayer.setOnPreparedListener {
+                isAudioReady = true
+            }
+            mediaPlayer.setOnCompletionListener {
+                isPlaying = false
+            }
+            mediaPlayer.prepareAsync()
+        }
+        onDispose {
+            mediaPlayer.release()
+            isAudioReady = false
+            isPlaying = false
+        }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(word?.word ?: "Word Detail") },
+            GlassTopAppBar(
+                title = word?.word ?: "Word Detail",
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = WhiteHigh)
                     }
                 },
                 actions = {
                     IconButton(onClick = { showEditDialog = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = WhiteHigh)
                     }
                 }
             )
@@ -259,19 +334,74 @@ fun VocabDetailScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(w.word, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = VocabPurple)
-                if (w.partOfSpeech.isNotEmpty()) {
-                    Text("(${w.partOfSpeech})", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                GlassCard(elevation = GlassElevation.Medium) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            w.word,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = VocabPurple
+                        )
+                        if (w.partOfSpeech.isNotEmpty()) {
+                            Text(
+                                "(${w.partOfSpeech})",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = WhiteMedium
+                            )
+                        }
+                        GlassDivider()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "Meaning",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = VocabPurple
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(w.meaning, style = MaterialTheme.typography.bodyLarge, color = WhiteHigh)
+                        if (audioUrl.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            GlassOutlineButton(
+                                onClick = {
+                                    if (isPlaying) {
+                                        mediaPlayer.pause()
+                                        isPlaying = false
+                                    } else if (isAudioReady) {
+                                        mediaPlayer.start()
+                                        isPlaying = true
+                                    }
+                                },
+                                enabled = isAudioReady
+                            ) {
+                                Icon(
+                                    if (isPlaying) Icons.Default.Stop else Icons.Default.VolumeUp,
+                                    contentDescription = null
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(if (isPlaying) "Stop" else "Play pronunciation")
+                            }
+                        }
+                        if (w.exampleSentence.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            GlassDivider()
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "Example",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = VocabPurple
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(w.exampleSentence, style = MaterialTheme.typography.bodyMedium, color = WhiteMedium)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "Added: ${w.dateAdded}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WhiteLow
+                        )
+                    }
                 }
-                Divider()
-                Text("Meaning", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text(w.meaning, style = MaterialTheme.typography.bodyLarge)
-                if (w.exampleSentence.isNotEmpty()) {
-                    Divider()
-                    Text("Example", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Text(w.exampleSentence, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text("Added: ${w.dateAdded}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

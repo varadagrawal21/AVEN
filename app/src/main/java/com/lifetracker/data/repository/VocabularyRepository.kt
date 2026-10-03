@@ -23,13 +23,15 @@ class VocabularyRepository @Inject constructor(
         word: String,
         meaning: String,
         exampleSentence: String = "",
-        partOfSpeech: String = ""
+        partOfSpeech: String = "",
+        pronunciationAudioUrl: String = ""
     ): Long {
         val entity = VocabularyEntity(
             word = word.trim(),
             meaning = meaning.trim(),
             exampleSentence = exampleSentence.trim(),
             partOfSpeech = partOfSpeech.trim(),
+            pronunciationAudioUrl = pronunciationAudioUrl.trim(),
             dateAdded = LocalDate.now().toString()
         )
         return dao.insert(entity)

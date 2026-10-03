@@ -16,7 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lifetracker.data.db.HealthLogEntity
 import com.lifetracker.ui.components.*
-import com.lifetracker.ui.theme.HealthGreen
+import com.lifetracker.ui.theme.*
+import androidx.compose.ui.window.DialogProperties
 import com.lifetracker.viewmodel.HealthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,15 +31,15 @@ fun HealthScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("💪 Health & Fitness") })
+            GlassTopAppBar(title = "Health & Fitness")
         },
         floatingActionButton = {
-            FloatingActionButton(
+            GlassFloatingActionButton(
                 onClick = { showLogDialog = true },
-                containerColor = HealthGreen
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Log Health Data")
-            }
+                icon = Icons.Default.Add,
+                contentDescription = "Log Health Data",
+                accentColor = HealthGreen
+            )
         }
     ) { padding ->
         LazyColumn(
@@ -48,55 +49,23 @@ fun HealthScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // BMI Card
-            item {
-                if (state.bmi > 0) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
+            if (state.bmi > 0) {
+                item {
+                    GlassCard(elevation = GlassElevation.Medium) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(20.dp),
                             horizontalArrangement = Arrangement.SpaceAround
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("BMI", style = MaterialTheme.typography.labelMedium)
-                                Text(
-                                    String.format("%.1f", state.bmi),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = HealthGreen
-                                )
-                                Text(state.bmiCategory, style = MaterialTheme.typography.bodySmall)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Weight", style = MaterialTheme.typography.labelMedium)
-                                Text(
-                                    "${state.user?.weightKg ?: "--"} kg",
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = HealthGreen
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Height", style = MaterialTheme.typography.labelMedium)
-                                Text(
-                                    "${state.user?.heightCm ?: "--"} cm",
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = HealthGreen
-                                )
-                            }
+                            StatColumn("BMI", String.format("%.1f", state.bmi), state.bmiCategory, HealthGreen)
+                            StatColumn("Weight", "${state.user?.weightKg ?: "--"}", "kg", HealthGreen)
+                            StatColumn("Height", "${state.user?.heightCm ?: "--"}", "cm", HealthGreen)
                         }
                     }
                 }
             }
 
-            // Today's stats
             item {
                 SectionHeader(title = "Today's Stats")
             }
@@ -104,19 +73,21 @@ fun HealthScreen(
                 state.todayLog?.let { log ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StatCard(
+                        DashboardStatCard(
                             title = "Calories",
                             value = "${log.caloriesConsumed}",
                             subtitle = "kcal",
+                            icon = Icons.Default.LocalFireDepartment,
                             accentColor = HealthGreen,
                             modifier = Modifier.weight(1f)
                         )
-                        StatCard(
+                        DashboardStatCard(
                             title = "Steps",
                             value = "${log.stepsCount}",
                             subtitle = "steps",
+                            icon = Icons.Default.DirectionsWalk,
                             accentColor = HealthGreen,
                             modifier = Modifier.weight(1f)
                         )
@@ -127,7 +98,6 @@ fun HealthScreen(
                 )
             }
 
-            // Recent logs
             item {
                 SectionHeader(title = "Recent Logs")
             }
@@ -169,25 +139,44 @@ fun HealthScreen(
 }
 
 @Composable
+fun StatColumn(label: String, value: String, subtitle: String, color: androidx.compose.ui.graphics.Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = WhiteMedium)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+        if (subtitle.isNotEmpty()) {
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = WhiteLow)
+        }
+    }
+}
+
+@Composable
 fun HealthLogItem(log: HealthLogEntity, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    GlassListItem(onClick = null) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(log.date, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "${log.caloriesConsumed} kcal • ${log.weightKg?.let { "${it} kg" } ?: "No weight"} • ${log.stepsCount} steps",
+                    log.date,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = WhiteHigh
+                )
+                Text(
+                    "${log.caloriesConsumed} kcal - ${log.weightKg?.let { "${it} kg" } ?: "No weight"} - ${log.stepsCount} steps",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = WhiteMedium
                 )
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = ErrorColor)
             }
         }
     }
@@ -209,59 +198,62 @@ fun HealthLogDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log Health Data") },
+        containerColor = GlassHeavy,
+        title = { Text("Log Health Data", color = WhiteHigh) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(
-                    value = weightText, onValueChange = { weightText = it },
-                    label = { Text("Weight (kg)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
+                GlassTextField(
+                    value = weightText,
+                    onValueChange = { weightText = it },
+                    label = "Weight (kg)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-                OutlinedTextField(
-                    value = caloriesText, onValueChange = { caloriesText = it },
-                    label = { Text("Calories (kcal)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+                GlassTextField(
+                    value = caloriesText,
+                    onValueChange = { caloriesText = it },
+                    label = "Calories (kcal)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = proteinText, onValueChange = { proteinText = it },
-                        label = { Text("Protein (g)") },
+                    GlassTextField(
+                        value = proteinText,
+                        onValueChange = { proteinText = it },
+                        label = "Protein (g)",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
-                        value = carbsText, onValueChange = { carbsText = it },
-                        label = { Text("Carbs (g)") },
+                    GlassTextField(
+                        value = carbsText,
+                        onValueChange = { carbsText = it },
+                        label = "Carbs (g)",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
                     )
                 }
-                OutlinedTextField(
-                    value = fatText, onValueChange = { fatText = it },
-                    label = { Text("Fat (g)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
+                GlassTextField(
+                    value = fatText,
+                    onValueChange = { fatText = it },
+                    label = "Fat (g)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-                OutlinedTextField(
-                    value = stepsText, onValueChange = { stepsText = it },
-                    label = { Text("Steps") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+                GlassTextField(
+                    value = stepsText,
+                    onValueChange = { stepsText = it },
+                    label = "Steps",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
-                OutlinedTextField(
-                    value = notes, onValueChange = { notes = it },
-                    label = { Text("Notes") },
-                    modifier = Modifier.fillMaxWidth()
+                GlassTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Notes"
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
+            GlassPrimaryButton(onClick = {
                 onSave(
                     weightText.toFloatOrNull(),
                     caloriesText.toIntOrNull() ?: 0,
@@ -274,7 +266,9 @@ fun HealthLogDialog(
             }) { Text("Save") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+            GlassOutlineButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        shape = GlassShapes.Large,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     )
 }
